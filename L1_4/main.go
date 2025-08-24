@@ -20,7 +20,7 @@ type job struct {
 	s string
 }
 
-func worker(id int, wg *sync.WaitGroup, jobs <-chan job, ctx context.Context) {
+func worker1(id int, wg *sync.WaitGroup, jobs <-chan job, ctx context.Context) { // Как я понимаю в таком случае у нас сразу прерывается обработка
 	defer wg.Done()
 	for {
 		select {
@@ -29,7 +29,7 @@ func worker(id int, wg *sync.WaitGroup, jobs <-chan job, ctx context.Context) {
 			return
 		case job, ok := <-jobs:
 			if !ok {
-				fmt.Printf("worker %d terminated\n", id)
+				fmt.Printf("worker %d empty and terminated\n", id)
 				return
 			}
 			fmt.Printf("Worker id: %d %s\n", id, job.s)
@@ -37,9 +37,18 @@ func worker(id int, wg *sync.WaitGroup, jobs <-chan job, ctx context.Context) {
 	}
 }
 
+func worker2(id int, wg *sync.WaitGroup, jobs <-chan job) { // А вот здесь уже очередь из сообщений до конца чиститься будет, так как в 76 строчке
+	// при ctx.Done закроется канал с джобами, воркеры дочитают элементы из Jobs и стопнутся
+	defer wg.Done()
+	for job := range jobs {
+		fmt.Printf("Worker id: %d %s\n", id, job.s)
+	}
+	fmt.Printf("worker %d empty and terminated\n", id)
+}
+
 func main() {
 	var wg sync.WaitGroup
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	if len(os.Args) < 2 {
@@ -54,28 +63,36 @@ func main() {
 	}
 
 	wg.Add(workers)
-	jobs := make(chan job)
+	jobs := make(chan job, 64) // добавил буффер
 	in := make(chan string)
 
 	go func() {
 		defer close(in)
 		sc := bufio.NewScanner(os.Stdin)
 		for sc.Scan() {
-			text := sc.Text()
-			in <- text
+			in <- sc.Text()
 		}
 	}()
 
 	go func() {
 		defer close(jobs)
-		for s := range in {
-			jobs <- job{s}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case s, ok := <-in:
+				if !ok {
+					return
+				}
+				jobs <- job{s}
+			}
 		}
 	}()
 
 	for w := 0; w < workers; w++ {
 		id := w + 1
-		go worker(id, &wg, jobs, ctx)
+		//go worker1(id, &wg, jobs, ctx)
+		go worker2(id, &wg, jobs)
 	}
 	wg.Wait()
 }
