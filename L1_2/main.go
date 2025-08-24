@@ -10,6 +10,7 @@ import (
 )
 
 func main() {
+	var wg sync.WaitGroup
 	sc := bufio.NewScanner(os.Stdin)
 
 	var Numbers []int
@@ -29,7 +30,7 @@ func main() {
 			}
 		}
 	}
-	var wg sync.WaitGroup
+
 	wg.Add(len(Numbers))
 	for i := range Numbers {
 		i := i
