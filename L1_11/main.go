@@ -19,19 +19,13 @@ func main() {
 		fmt.Scan(&val)
 		b = append(b, val)
 	}
-
 	for _, i := range a {
 		intersect[i] = false
 	}
 	for _, i := range b {
 		if _, ok := intersect[i]; ok {
 			intersect[i] = true
+			fmt.Printf("%d ", i)
 		}
-	}
-	for key, value := range intersect {
-		if value == true {
-			fmt.Println(key)
-		}
-
 	}
 }
