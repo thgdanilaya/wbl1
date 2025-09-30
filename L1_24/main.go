@@ -15,7 +15,7 @@ func NewPoint(x, y float64) *Point {
 }
 
 func (p *Point) DistanceTo(other *Point) float64 {
-	return math.Sqrt(math.Pow(other.x-p.x, 2) + math.Pow(other.y-p.y, 2))
+	return math.Hypot(p.x-other.x, p.y-other.y)
 }
 
 func main() {
